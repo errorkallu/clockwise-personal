@@ -9,6 +9,7 @@
 #include <CWPreferences.h>
 #include <CWWebServer.h>
 #include <StatusController.h>
+#include <HUB75Pins.h>
 
 #define MIN_BRIGHT_DISPLAY_ON 4
 #define MIN_BRIGHT_DISPLAY_OFF 0
@@ -38,27 +39,37 @@ bool isValidDriver(uint32_t drv) {
 
 void displaySetup(bool swapBlueGreen, bool swapBlueRed, uint8_t displayBright, uint8_t displayRotation, uint8_t driver, uint32_t i2cSpeed, uint8_t E_pin)
 {
-  HUB75_I2S_CFG mxconfig(64, 64, 1);
+  // Explicit pin map for the 38-pin ESP32 DevKit (see HUB75Pins.h).
+  HUB75_I2S_CFG::i2s_pins pins = {
+    cw::hub75::R1_PIN, cw::hub75::G1_PIN, cw::hub75::B1_PIN,
+    cw::hub75::R2_PIN, cw::hub75::G2_PIN, cw::hub75::B2_PIN,
+    cw::hub75::A_PIN, cw::hub75::B_PIN, cw::hub75::C_PIN, cw::hub75::D_PIN,
+    (int8_t)cw::hub75::resolveEPin(E_pin),
+    cw::hub75::LAT_PIN, cw::hub75::OE_PIN, cw::hub75::CLK_PIN
+  };
+  HUB75_I2S_CFG mxconfig(64, 64, 1, pins);
 
   if (swapBlueGreen)
   {
     // Swap Blue and Green pins because the panel is RBG instead of RGB.
-    mxconfig.gpio.b1 = 26;
-    mxconfig.gpio.b2 = 12;
-    mxconfig.gpio.g1 = 27;
-    mxconfig.gpio.g2 = 13;
+    mxconfig.gpio.b1 = cw::hub75::G1_PIN;
+    mxconfig.gpio.b2 = cw::hub75::G2_PIN;
+    mxconfig.gpio.g1 = cw::hub75::B1_PIN;
+    mxconfig.gpio.g2 = cw::hub75::B2_PIN;
   }
 
   if (swapBlueRed)
   {
     // Swap Blue and Red pins. 
-    mxconfig.gpio.b1 = 25;
-    mxconfig.gpio.b2 = 14;
-    mxconfig.gpio.r1 = 27;
-    mxconfig.gpio.r2 = 13;
+    mxconfig.gpio.b1 = cw::hub75::R1_PIN;
+    mxconfig.gpio.b2 = cw::hub75::R2_PIN;
+    mxconfig.gpio.r1 = cw::hub75::B1_PIN;
+    mxconfig.gpio.r2 = cw::hub75::B2_PIN;
   }
 
-  mxconfig.gpio.e = E_pin;
+  if (mxconfig.gpio.e != E_pin) {
+    Serial.printf("[WARN] E_pin %d conflicts with the HUB75 pin map, using GPIO %d\n", E_pin, mxconfig.gpio.e);
+  }
   mxconfig.clkphase = false;
 
   if (isValidDriver(driver)) {

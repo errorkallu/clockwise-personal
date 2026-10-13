@@ -14,11 +14,14 @@ void test_function_should_be_true(void) {
 
 // Defined in WiFiSetupStateMachineTests.cpp
 void run_wifi_setup_state_machine_tests(void);
+// Defined in HUB75PinsTests.cpp
+void run_hub75_pins_tests(void);
 
 int runUnityTests(void) {
   UNITY_BEGIN();
   RUN_TEST(test_function_should_be_true);
   run_wifi_setup_state_machine_tests();
+  run_hub75_pins_tests();
   return UNITY_END();
 }
 

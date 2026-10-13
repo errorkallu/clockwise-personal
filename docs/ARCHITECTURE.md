@@ -51,7 +51,7 @@ flowchart TD
 ### Hardware Specifications
 * **Microcontroller**: Dual-core ESP32 @ 240MHz with 520 KB SRAM and 4MB+ Flash.
 * **Display Interface**: HUB75 / HUB75E protocol clocked via ESP32 I2S DMA peripheral at configurable speeds (8 MHz, 16 MHz, or 20 MHz).
-* **Display Addressing**: 1:32 scan rate (with E-line support on pin 18 for HUB75E 64×64 panels).
+* **Display Addressing**: 1:32 scan rate (with E-line support on GPIO 32 by default for HUB75E 64×64 panels).
 * **Sensors**: Ambient light detection via a photoresistor (LDR) on ADC1 (default: GPIO 35).
 * **Power Supply**: 5V DC rated for at least 3A (current consumption peaks with full-white high brightness).
 
@@ -192,7 +192,7 @@ Clockwise supports two distinct development workflows and an automated release p
 
 ### 5.1 PlatformIO (Recommended for App Developers)
 * **Configuration**: `firmware/platformio.ini`
-* **Target Board**: `board = esp32doit-devkit-v1`, `framework = arduino`
+* **Target Board**: `board = esp32dev` (38-pin ESP32 DevKit), `framework = arduino`
 * **Clockface Selection**: The active clockface is selected by symlinking or copying the clockface submodule into `firmware/lib/`:
   ```bash
   cd firmware/lib

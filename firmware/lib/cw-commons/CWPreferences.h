@@ -109,7 +109,7 @@ struct ClockwiseParams
         displayRotation = preferences.getUInt(PREF_DISPLAY_ROTATION, 0);
         driver = preferences.getUInt(PREF_DRIVER, 0);
         i2cSpeed = preferences.getUInt(PREF_I2CSPEED, (uint32_t)8000000);
-        E_pin = preferences.getUInt(PREF_E_PIN, 18);
+        E_pin = preferences.getUInt(PREF_E_PIN, 32);
     }
 
 };

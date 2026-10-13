@@ -170,8 +170,8 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
         },          
         {
           title: "E Pin",
-          description: "E pin is Address Line E used for 64-row LED panels to select specific rows (default: 18).",
-          formInput: "<input id='E_pin' class='w3-input w3-light-grey' name='E_pin' type='number' min='0' max='32' value='" + settings.e_pin + "'>",
+          description: "E pin is Address Line E used for 64-row LED panels to select specific rows (default: 32).",
+          formInput: "<input id='E_pin' class='w3-input w3-light-grey' name='E_pin' type='number' min='0' max='33' value='" + settings.e_pin + "'>",
           icon: "fa-microchip",
           save: "updatePreference('E_pin', E_pin.value)",
           property: "E_pin"
