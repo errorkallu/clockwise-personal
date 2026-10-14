@@ -10,6 +10,7 @@
 #include <CWWebServer.h>
 #include <StatusController.h>
 #include <HUB75Pins.h>
+#include <AvrDisplay.h>
 
 #define MIN_BRIGHT_DISPLAY_ON 4
 #define MIN_BRIGHT_DISPLAY_OFF 0
@@ -22,6 +23,10 @@ Clockface *clockface;
 
 WiFiController wifi;
 CWDateTime cwDateTime;
+
+bool avrShown = false;
+uint32_t avrDrawnUpdateMs = 0;
+String avrDrawnTime;
 
 bool autoBrightEnabled;
 long autoBrightMillis = 0;
@@ -157,6 +162,20 @@ void onNetworkReady()
   clockface->setup(&cwDateTime);
 }
 
+// Draws the AVR page pushed by Home Assistant; only redraws when data or the minute changes.
+void updateAvrScreen(const cw::AvrState &avr)
+{
+  String timeText = cwDateTime.getFormattedTime(ClockwiseParams::getInstance()->use24hFormat ? "H:i" : "g:i");
+
+  if (!avrShown || avr.lastUpdateMs != avrDrawnUpdateMs || timeText != avrDrawnTime)
+  {
+    cw::renderAvrScreen(dma_display, avr, timeText.c_str());
+    avrShown = true;
+    avrDrawnUpdateMs = avr.lastUpdateMs;
+    avrDrawnTime = timeText;
+  }
+}
+
 void loop()
 {
   if (wifi.update()) // also services Improv Serial on every pass
@@ -172,7 +191,22 @@ void loop()
 
   if (wifi.connectionSucessfulOnce)
   {
-    clockface->update();
+    const cw::AvrState &avr = ClockwiseWebServer::getInstance()->avrState;
+
+    if (cw::avrScreenActive(avr, millis()))
+    {
+      updateAvrScreen(avr);
+    }
+    else if (avrShown)
+    {
+      // Clockfaces draw their background once in setup(), so restart to bring the clockface back cleanly.
+      Serial.println("[AVR] Off, restoring clockface");
+      StatusController::getInstance()->forceRestart();
+    }
+    else
+    {
+      clockface->update();
+    }
   }
 
   automaticBrightControl();

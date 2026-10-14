@@ -4,6 +4,7 @@
 #include <CWPreferences.h>
 #include "StatusController.h"
 #include "SettingsWebPage.h"
+#include "AvrState.h"
 
 #ifndef CLOCKFACE_NAME
   #define CLOCKFACE_NAME "UNKNOWN"
@@ -14,7 +15,9 @@ WiFiServer server(80);
 struct ClockwiseWebServer
 {
   String httpBuffer;
+  String query;
   bool force_restart;
+  cw::AvrState avrState;
   const char* HEADER_TEMPLATE_D = "X-%s: %d\r\n";
   const char* HEADER_TEMPLATE_S = "X-%s: %s\r\n";
  
@@ -55,16 +58,18 @@ struct ClockwiseWebServer
 
           if (c == '\n')
           {
-            uint8_t method_pos = httpBuffer.indexOf(' ');
-            uint8_t path_pos = httpBuffer.indexOf(' ', method_pos + 1);
+            int method_pos = httpBuffer.indexOf(' ');
+            int path_pos = httpBuffer.indexOf(' ', method_pos + 1);
 
             String method = httpBuffer.substring(0, method_pos);
             String path = httpBuffer.substring(method_pos + 1, path_pos);
             String key = "";
             String value = "";
+            query = "";
 
             if (path.indexOf('?') > 0)
             {
+              query = path.substring(path.indexOf('?') + 1);
               key = path.substring(path.indexOf('?') + 1, path.indexOf('='));
               value = path.substring(path.indexOf('=') + 1);
               path = path.substring(0, path.indexOf('?'));
@@ -94,6 +99,11 @@ struct ClockwiseWebServer
       if (key == "pin") {
         readPin(client, key, value.toInt());
       }
+    } else if (method == "POST" && path == "/avr") {
+      // Pushed by Home Assistant: /avr?on=1&vol=-35.5&mode=Stereo&deq=On&dvol=off
+      cw::parseAvrQuery(query.c_str(), avrState, millis());
+      client.println("HTTP/1.0 204 No Content");
+      client.println();
     } else if (method == "POST" && path == "/restart") {
       client.println("HTTP/1.0 204 No Content");
       force_restart = true;
