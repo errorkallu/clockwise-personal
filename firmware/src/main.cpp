@@ -165,11 +165,13 @@ void onNetworkReady()
 // Draws the AVR page pushed by Home Assistant; only redraws when data or the minute changes.
 void updateAvrScreen(const cw::AvrState &avr)
 {
-  String timeText = cwDateTime.getFormattedTime(ClockwiseParams::getInstance()->use24hFormat ? "H:i" : "g:i");
+  bool use24h = ClockwiseParams::getInstance()->use24hFormat;
+  String timeText = cwDateTime.getFormattedTime(use24h ? "H:i" : "g:i");
+  String ampm = use24h ? String("") : cwDateTime.getFormattedTime("A");
 
   if (!avrShown || avr.lastUpdateMs != avrDrawnUpdateMs || timeText != avrDrawnTime)
   {
-    cw::renderAvrScreen(dma_display, avr, timeText.c_str());
+    cw::renderAvrScreen(dma_display, avr, timeText.c_str(), ampm.c_str());
     avrShown = true;
     avrDrawnUpdateMs = avr.lastUpdateMs;
     avrDrawnTime = timeText;

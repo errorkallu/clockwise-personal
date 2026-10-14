@@ -15,6 +15,8 @@ struct AvrState
   char mode[32] = "";
   char deq[8] = "";
   char dvol[8] = "";
+  char src[24] = "";  // Harmony activity, e.g. "Watch Apple TV"
+  char app[24] = "";  // app running on that source, e.g. "YouTube"
   uint32_t lastUpdateMs = 0;
 };
 
@@ -92,6 +94,10 @@ inline void parseAvrQuery(const char *query, AvrState &state, uint32_t nowMs)
         urlDecode(val, valLen, state.deq, sizeof(state.deq));
       else if (keyLen == 4 && strncmp(p, "dvol", 4) == 0)
         urlDecode(val, valLen, state.dvol, sizeof(state.dvol));
+      else if (keyLen == 3 && strncmp(p, "src", 3) == 0)
+        urlDecode(val, valLen, state.src, sizeof(state.src));
+      else if (keyLen == 3 && strncmp(p, "app", 3) == 0)
+        urlDecode(val, valLen, state.app, sizeof(state.app));
     }
     if (!amp) break;
     p = amp + 1;
@@ -136,6 +142,71 @@ inline void wrapTwoLines(const char *text, size_t maxChars, char *line1, char *l
   if (n2 > bufSize - 1) n2 = bufSize - 1;
   memcpy(line2, rest, n2);
   line2[n2] = '\0';
+}
+
+enum class AvrIcon : uint8_t
+{
+  None, AppleTv, Nvidia, BluRay, Turntable, Xbox, Kodi, Laptop,
+  Netflix, YouTube, Plex, Disney, Prime, Spotify, Emby, Hulu, Twitch
+};
+
+// Case-insensitive substring search.
+inline bool containsNoCase(const char *text, const char *needle)
+{
+  size_t n = strlen(needle);
+  for (const char *t = text; *t; t++)
+  {
+    size_t i = 0;
+    while (i < n && t[i] && tolower((unsigned char)t[i]) == tolower((unsigned char)needle[i])) i++;
+    if (i == n) return true;
+  }
+  return false;
+}
+
+// Maps a Harmony activity name ("Watch Apple TV", "Shield Media player", "Blu-ray", "Turn Table") to a logo.
+inline AvrIcon sourceIcon(const char *activity)
+{
+  if (containsNoCase(activity, "apple")) return AvrIcon::AppleTv;
+  if (containsNoCase(activity, "shield") || containsNoCase(activity, "nvidia")) return AvrIcon::Nvidia;
+  if (containsNoCase(activity, "blu")) return AvrIcon::BluRay;
+  if (containsNoCase(activity, "turn") || containsNoCase(activity, "vinyl")) return AvrIcon::Turntable;
+  if (containsNoCase(activity, "xbox")) return AvrIcon::Xbox;
+  if (containsNoCase(activity, "kodi")) return AvrIcon::Kodi;
+  if (containsNoCase(activity, "laptop") || containsNoCase(activity, "pc")) return AvrIcon::Laptop;
+  return AvrIcon::None;
+}
+
+// Maps an app name reported by the Apple TV / Shield to a logo; None means "draw its initials".
+inline AvrIcon appIcon(const char *app)
+{
+  if (containsNoCase(app, "netflix")) return AvrIcon::Netflix;
+  if (containsNoCase(app, "youtube")) return AvrIcon::YouTube;
+  if (containsNoCase(app, "plex")) return AvrIcon::Plex;
+  if (containsNoCase(app, "disney")) return AvrIcon::Disney;
+  if (containsNoCase(app, "prime") || containsNoCase(app, "amazon")) return AvrIcon::Prime;
+  if (containsNoCase(app, "spotify")) return AvrIcon::Spotify;
+  if (containsNoCase(app, "emby")) return AvrIcon::Emby;
+  if (containsNoCase(app, "hulu")) return AvrIcon::Hulu;
+  if (containsNoCase(app, "twitch")) return AvrIcon::Twitch;
+  if (containsNoCase(app, "kodi")) return AvrIcon::Kodi;
+  if (strcmp(app, "TV") == 0 || containsNoCase(app, "apple tv")) return AvrIcon::AppleTv;
+  return AvrIcon::None;
+}
+
+// Splits "-76.5" into "-76" and ".5"; a ".0" fraction is dropped ("-30.0" -> "-30", "").
+inline void splitVolume(const char *vol, char *whole, char *frac, size_t bufSize)
+{
+  whole[0] = frac[0] = '\0';
+  const char *dot = strchr(vol, '.');
+  size_t n = dot ? (size_t)(dot - vol) : strlen(vol);
+  if (n > bufSize - 1) n = bufSize - 1;
+  memcpy(whole, vol, n);
+  whole[n] = '\0';
+  if (dot && dot[1] && !(dot[1] == '0' && dot[2] == '\0'))
+  {
+    strncpy(frac, dot, bufSize - 1);
+    frac[bufSize - 1] = '\0';
+  }
 }
 
 } // namespace cw

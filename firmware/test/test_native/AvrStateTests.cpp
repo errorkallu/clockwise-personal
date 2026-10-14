@@ -71,6 +71,51 @@ void test_wrap_two_lines(void)
   TEST_ASSERT_EQUAL_STRING("ELSTEREO", l2);
 }
 
+void test_avr_query_parses_source_and_app(void)
+{
+  cw::AvrState s;
+  cw::parseAvrQuery("on=1&src=Watch%20Apple%20TV&app=YouTube", s, 0);
+  TEST_ASSERT_EQUAL_STRING("Watch Apple TV", s.src);
+  TEST_ASSERT_EQUAL_STRING("YouTube", s.app);
+  cw::parseAvrQuery("src=Turn%20Table&app=", s, 0);
+  TEST_ASSERT_EQUAL_STRING("Turn Table", s.src);
+  TEST_ASSERT_EQUAL_STRING("", s.app);
+}
+
+void test_source_icons_match_harmony_activities(void)
+{
+  TEST_ASSERT_TRUE(cw::sourceIcon("Watch Apple TV") == cw::AvrIcon::AppleTv);
+  TEST_ASSERT_TRUE(cw::sourceIcon("Shield Media player") == cw::AvrIcon::Nvidia);
+  TEST_ASSERT_TRUE(cw::sourceIcon("Blu-ray") == cw::AvrIcon::BluRay);
+  TEST_ASSERT_TRUE(cw::sourceIcon("Turn Table") == cw::AvrIcon::Turntable);
+  TEST_ASSERT_TRUE(cw::sourceIcon("XBOX") == cw::AvrIcon::Xbox);
+  TEST_ASSERT_TRUE(cw::sourceIcon("") == cw::AvrIcon::None);
+}
+
+void test_app_icons(void)
+{
+  TEST_ASSERT_TRUE(cw::appIcon("Netflix") == cw::AvrIcon::Netflix);
+  TEST_ASSERT_TRUE(cw::appIcon("YouTube") == cw::AvrIcon::YouTube);
+  TEST_ASSERT_TRUE(cw::appIcon("Prime Video") == cw::AvrIcon::Prime);
+  TEST_ASSERT_TRUE(cw::appIcon("Disney+") == cw::AvrIcon::Disney);
+  TEST_ASSERT_TRUE(cw::appIcon("TV") == cw::AvrIcon::AppleTv);
+  TEST_ASSERT_TRUE(cw::appIcon("Crave") == cw::AvrIcon::None);
+}
+
+void test_split_volume(void)
+{
+  char whole[8], frac[8];
+  cw::splitVolume("-30.0", whole, frac, sizeof(whole));
+  TEST_ASSERT_EQUAL_STRING("-30", whole);
+  TEST_ASSERT_EQUAL_STRING("", frac);
+  cw::splitVolume("-76.5", whole, frac, sizeof(whole));
+  TEST_ASSERT_EQUAL_STRING("-76", whole);
+  TEST_ASSERT_EQUAL_STRING(".5", frac);
+  cw::splitVolume("-8", whole, frac, sizeof(whole));
+  TEST_ASSERT_EQUAL_STRING("-8", whole);
+  TEST_ASSERT_EQUAL_STRING("", frac);
+}
+
 void run_avr_state_tests(void)
 {
   RUN_TEST(test_avr_query_parses_all_fields);
@@ -79,4 +124,8 @@ void run_avr_state_tests(void)
   RUN_TEST(test_avr_query_off_and_truncation);
   RUN_TEST(test_avr_screen_times_out_and_survives_wraparound);
   RUN_TEST(test_wrap_two_lines);
+  RUN_TEST(test_avr_query_parses_source_and_app);
+  RUN_TEST(test_source_icons_match_harmony_activities);
+  RUN_TEST(test_app_icons);
+  RUN_TEST(test_split_volume);
 }
