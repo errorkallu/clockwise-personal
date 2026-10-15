@@ -1,7 +1,7 @@
 #include "unity.h"
 #include <stdint.h>
 
-#include "../../lib/cw-commons/AvrState.h"
+#include "../../lib/cw-commons/AvrLogos.h"
 
 void test_avr_query_parses_all_fields(void)
 {
@@ -92,14 +92,33 @@ void test_source_icons_match_harmony_activities(void)
   TEST_ASSERT_TRUE(cw::sourceIcon("") == cw::AvrIcon::None);
 }
 
-void test_app_icons(void)
+void test_same_app_name_ignores_case_and_punctuation(void)
 {
-  TEST_ASSERT_TRUE(cw::appIcon("Netflix") == cw::AvrIcon::Netflix);
-  TEST_ASSERT_TRUE(cw::appIcon("YouTube") == cw::AvrIcon::YouTube);
-  TEST_ASSERT_TRUE(cw::appIcon("Prime Video") == cw::AvrIcon::Prime);
-  TEST_ASSERT_TRUE(cw::appIcon("Disney+") == cw::AvrIcon::Disney);
-  TEST_ASSERT_TRUE(cw::appIcon("TV") == cw::AvrIcon::AppleTv);
-  TEST_ASSERT_TRUE(cw::appIcon("Crave") == cw::AvrIcon::None);
+  TEST_ASSERT_TRUE(cw::sameAppName("Disney+", "disney +"));
+  TEST_ASSERT_TRUE(cw::sameAppName("Prime Video", "PRIME-VIDEO"));
+  TEST_ASSERT_FALSE(cw::sameAppName("YouTube", "YouTube Kids"));
+  TEST_ASSERT_FALSE(cw::sameAppName("Disney+ Hotstar", "Disney+"));
+  TEST_ASSERT_FALSE(cw::sameAppName("", "Netflix"));
+}
+
+void test_app_logos(void)
+{
+  TEST_ASSERT_NOT_NULL(cw::appLogo("Netflix"));
+  TEST_ASSERT_NOT_NULL(cw::appLogo("YouTube Kids"));
+  TEST_ASSERT_TRUE(cw::appLogo("YouTube") != cw::appLogo("YouTube Kids"));
+  TEST_ASSERT_TRUE(cw::appLogo("Disney+") == cw::AVR_ICON_DISNEY);
+  TEST_ASSERT_TRUE(cw::appLogo("TV") == cw::AVR_ICON_APPLETV);
+  TEST_ASSERT_TRUE(cw::appLogo("Apple TV") == cw::AVR_ICON_APPLETV);
+  // No logo: the screen writes the name instead
+  TEST_ASSERT_NULL(cw::appLogo("ETV Win"));
+  TEST_ASSERT_NULL(cw::appLogo("Sneaky Sasquatch"));
+  TEST_ASSERT_NULL(cw::appLogo(""));
+}
+
+void test_source_logos(void)
+{
+  TEST_ASSERT_TRUE(cw::sourceLogo(cw::AvrIcon::Nvidia) == cw::AVR_ICON_NVIDIA);
+  TEST_ASSERT_NULL(cw::sourceLogo(cw::AvrIcon::None));
 }
 
 void test_split_volume(void)
@@ -126,6 +145,8 @@ void run_avr_state_tests(void)
   RUN_TEST(test_wrap_two_lines);
   RUN_TEST(test_avr_query_parses_source_and_app);
   RUN_TEST(test_source_icons_match_harmony_activities);
-  RUN_TEST(test_app_icons);
+  RUN_TEST(test_same_app_name_ignores_case_and_punctuation);
+  RUN_TEST(test_app_logos);
+  RUN_TEST(test_source_logos);
   RUN_TEST(test_split_volume);
 }

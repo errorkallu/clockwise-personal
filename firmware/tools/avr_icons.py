@@ -1,4 +1,4 @@
-# Generates the 16x16 RGB565 pixel-art logos for the AVR screen (AvrIcons.h) plus a preview PNG.
+# Generates the 16x16 RGB565 pixel-art source logos for the AVR screen (AvrIcons.h) plus a preview PNG.
 # Needs Pillow.
 import math, sys
 from PIL import Image
@@ -113,30 +113,7 @@ def laptop():
     c.rect(2,3,13,10,k); c.rect(3,4,12,9,rgb(0x2060C0)); c.rect(0,11,15,12,k)
     return c
 ICONS['laptop']=laptop()
-# ---- apps ----
-def netflix():
-    c=C(BLACK); R=rgb(0xE50914); D=rgb(0x8B0000)
-    for y in range(1,15):
-        c.set(4,y,R); c.set(5,y,R); c.set(10,y,R); c.set(11,y,R)
-        x=4+round((y-1)*6/13)
-        c.set(x,y,R); c.set(x+1,y,R)
-    return c
-ICONS['netflix']=netflix()
-def youtube():
-    c=C(None); R=rgb(0xFF0000)
-    c.rect(0,3,15,12,R); c.set(0,3,BLACK); c.set(15,3,BLACK); c.set(0,12,BLACK); c.set(15,12,BLACK)
-    tri=["W.....","WWW...","WWWWW.","WWWWWW","WWWWW.","WWW...","W....."]
-    c.art(tri,{'W':WHITE},6,4)
-    return c
-ICONS['youtube']=youtube()
-def plex():
-    c=C(rgb(0x1F1F1F)); O=rgb(0xE5A00D)
-    for y in range(2,14):
-        d=abs(y-7.5)
-        x=int(round(4+(5.5-d)*0.9))
-        for k in range(3): c.set(x+k,y,O)
-    return c
-ICONS['plex']=plex()
+# ---- apps whose brand artwork is too dark or thin at 16px (the rest come from avr_app_logos.py) ----
 def disney():
     c=C(rgb(0x0E1A5C))
     c.art([
@@ -173,49 +150,6 @@ def prime():
 ],{'W':WHITE},0,1)
     return c
 ICONS['prime']=prime()
-def spotify():
-    c=C(None); c.disc(7.5,7.5,7.6,rgb(0x1DB954))
-    c.art([
-"................",
-"................",
-"................",
-"................",
-"...KKKKKKKKK....",
-"..K.........KK..",
-"................",
-"...KKKKKKKK.....",
-"..K........K....",
-"................",
-"....KKKKKK......",
-"...K......K.....",
-],{'K':BLACK})
-    return c
-ICONS['spotify']=spotify()
-def emby():
-    G=rgb(0x52B54B); c=C(None)
-    for y in range(N):
-        for x in range(N):
-            if abs(x-7.5)+abs(y-7.5)*0.6<=8.5 and abs(x-7.5)<=7.5: c.set(x,y,G)
-    c.art(["W....","WWW..","WWWWW","WWW..","W...."],{'W':WHITE},6,5)
-    return c
-ICONS['emby']=emby()
-def hulu():
-    c=C(rgb(0x1CE783)); K=BLACK
-    c.art([
-"W.......W.......",
-"W.......W.......",
-"WWW.W.W.W.W.W...",
-"W.W.W.W.W.W.W...",
-"W.W.WWW.W.WWW...",
-],{'W':K},2,5)
-    return c
-ICONS['hulu']=hulu()
-def twitch():
-    P=rgb(0x9146FF); c=C(P)
-    c.rect(3,3,12,10,WHITE); c.rect(4,4,11,9,P); c.rect(6,5,6,7,WHITE); c.rect(9,5,9,7,WHITE)
-    c.rect(5,11,6,12,WHITE); c.set(7,11,WHITE)
-    return c
-ICONS['twitch']=twitch()
 
 def to565(c):
     return [((r>>3)<<11)|((g>>2)<<5)|(b>>3) for row in c.p for (r,g,b) in row]

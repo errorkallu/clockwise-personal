@@ -146,8 +146,7 @@ inline void wrapTwoLines(const char *text, size_t maxChars, char *line1, char *l
 
 enum class AvrIcon : uint8_t
 {
-  None, AppleTv, Nvidia, BluRay, Turntable, Xbox, Kodi, Laptop,
-  Netflix, YouTube, Plex, Disney, Prime, Spotify, Emby, Hulu, Twitch
+  None, AppleTv, Nvidia, BluRay, Turntable, Xbox, Kodi, Laptop
 };
 
 // Case-insensitive substring search.
@@ -176,21 +175,19 @@ inline AvrIcon sourceIcon(const char *activity)
   return AvrIcon::None;
 }
 
-// Maps an app name reported by the Apple TV / Shield to a logo; None means "draw its initials".
-inline AvrIcon appIcon(const char *app)
+// True when two app names match ignoring case, spaces and punctuation ("Disney+" == "disney +",
+// but "YouTube" != "YouTube Kids").
+inline bool sameAppName(const char *a, const char *b)
 {
-  if (containsNoCase(app, "netflix")) return AvrIcon::Netflix;
-  if (containsNoCase(app, "youtube")) return AvrIcon::YouTube;
-  if (containsNoCase(app, "plex")) return AvrIcon::Plex;
-  if (containsNoCase(app, "disney")) return AvrIcon::Disney;
-  if (containsNoCase(app, "prime") || containsNoCase(app, "amazon")) return AvrIcon::Prime;
-  if (containsNoCase(app, "spotify")) return AvrIcon::Spotify;
-  if (containsNoCase(app, "emby")) return AvrIcon::Emby;
-  if (containsNoCase(app, "hulu")) return AvrIcon::Hulu;
-  if (containsNoCase(app, "twitch")) return AvrIcon::Twitch;
-  if (containsNoCase(app, "kodi")) return AvrIcon::Kodi;
-  if (strcmp(app, "TV") == 0 || containsNoCase(app, "apple tv")) return AvrIcon::AppleTv;
-  return AvrIcon::None;
+  for (;;)
+  {
+    while (*a && !isalnum((unsigned char)*a)) a++;
+    while (*b && !isalnum((unsigned char)*b)) b++;
+    if (!*a || !*b) return !*a && !*b;
+    if (tolower((unsigned char)*a) != tolower((unsigned char)*b)) return false;
+    a++;
+    b++;
+  }
 }
 
 // Splits "-76.5" into "-76" and ".5"; a ".0" fraction is dropped ("-30.0" -> "-30", "").
