@@ -166,21 +166,23 @@ static void test_avr_query_reads_vpn(void)
 
 static void test_vpn_line_fits_width(void)
 {
-  char label[32], status[32];
-  cw::fitVpnLine(true, "India", 63, label, status, sizeof(label));
-  TEST_ASSERT_EQUAL_STRING("VPN: ", label);
-  TEST_ASSERT_EQUAL_STRING("ON INDIA", status);
-  TEST_ASSERT_EQUAL_INT(45, cw::tomThumbWidth("VPN: ON INDIA"));
+  char label[8], status[8], code[8];
+  cw::fitVpnLine(true, "IND", 47, label, status, code);
+  TEST_ASSERT_EQUAL_STRING("VPN:", label);
+  TEST_ASSERT_EQUAL_STRING("ON", status);
+  TEST_ASSERT_EQUAL_STRING("IND", code);
+  TEST_ASSERT_EQUAL_INT(35, cw::tomThumbWidth("VPN:ON IND"));
+  // Longer text is cut to 3 letters
+  cw::fitVpnLine(true, "Canada", 47, label, status, code);
+  TEST_ASSERT_EQUAL_STRING("CAN", code);
   // Two logos leave 31px: the label goes first
-  cw::fitVpnLine(true, "India", 31, label, status, sizeof(label));
+  cw::fitVpnLine(true, "IND", 31, label, status, code);
   TEST_ASSERT_EQUAL_STRING("", label);
-  TEST_ASSERT_EQUAL_STRING("ON INDIA", status);
-  // Long names are shortened
-  cw::fitVpnLine(true, "United States", 31, label, status, sizeof(label));
-  TEST_ASSERT_EQUAL_STRING("ON UNITE", status);
-  cw::fitVpnLine(false, "India", 31, label, status, sizeof(label));
-  TEST_ASSERT_EQUAL_STRING("VPN: ", label);
+  TEST_ASSERT_EQUAL_STRING("IND", code);
+  cw::fitVpnLine(false, "IND", 31, label, status, code);
+  TEST_ASSERT_EQUAL_STRING("VPN:", label);
   TEST_ASSERT_EQUAL_STRING("OFF", status);
+  TEST_ASSERT_EQUAL_STRING("", code);
 }
 
 void run_avr_vpn_tests(void)

@@ -11,7 +11,7 @@
 // Full-screen AVR status page (64x64), shown instead of the clockface while the AVR is on.
 //
 //  [src][app] 12:30PM   <- source + app logos, time with AM/PM beside it
-//  [   ][   ] VPN: ON INDIA  <- small, only when HA sends vpn= (Shield on)
+//  [   ][   ] VPN:ON IND  <- small, only when HA sends vpn= (Shield on)
 //   (app name)          <- only when the app has no logo
 //     -30 dB            <- volume, large
 //      Dolby            <- sound mode, up to two centred lines
@@ -27,6 +27,7 @@ static const uint16_t AVR_COLOR_LABEL = 0xFC60; // orange
 static const uint16_t AVR_COLOR_OFF = 0x6B4D;   // grey
 static const uint16_t AVR_COLOR_VPN_ON = 0x07E0;  // green
 static const uint16_t AVR_COLOR_VPN_OFF = 0xF800; // red
+static const uint16_t AVR_COLOR_VPN_COUNTRY = 0xFFE0; // yellow
 
 inline int16_t avrTextWidth(Adafruit_GFX *d, const char *text)
 {
@@ -94,27 +95,33 @@ inline void renderAvrScreen(Adafruit_GFX *d, const AvrState &s, const char *time
   int16_t ampmW = ampm[0] ? avrTextWidth(d, ampm) + 1 : 0;
   int16_t timeX = 64 - ampmW - avrTightWidth(timeText);
   d->setFont();
-  avrPrintTight(d, timeText, timeX, 4, AVR_COLOR_TIME);
+  avrPrintTight(d, timeText, timeX, 2, AVR_COLOR_TIME);
   if (ampm[0])
   {
     d->setFont(&TomThumb);
-    avrPrintAt(d, ampm, 64 - ampmW + 1, 6, AVR_COLOR_TIME);
+    avrPrintAt(d, ampm, 64 - ampmW + 1, 4, AVR_COLOR_TIME);
   }
 
-  // Small VPN line under the time, right-aligned beside the logos
+  // Small VPN line under the time, right-aligned beside the logos: VPN:ON IND
   if (s.vpn >= 0)
   {
-    char label[32], status[32]; // same size: fitVpnLine uses one size for both
+    char label[8], status[8], code[8];
     int16_t logosW = (src ? 16 : 0) + (app ? 16 : 0);
-    fitVpnLine(s.vpn == 1, s.vpnc, 64 - logosW - 1, label, status, sizeof(label));
-    char full[40];
-    snprintf(full, sizeof(full), "%s%s", label, status);
+    fitVpnLine(s.vpn == 1, s.vpnc, 64 - logosW - 1, label, status, code);
+    char full[24];
+    snprintf(full, sizeof(full), "%s%s%s%s", label, status, code[0] ? " " : "", code);
     d->setFont(&TomThumb);
-    d->setCursor(64 - tomThumbWidth(full), 13 + 5); // capitals sit 5px above the baseline
+    d->setCursor(64 - tomThumbWidth(full), 11 + 5); // capitals sit 5px above the baseline
     d->setTextColor(AVR_COLOR_TEXT);
     d->print(label);
     d->setTextColor(s.vpn == 1 ? AVR_COLOR_VPN_ON : AVR_COLOR_VPN_OFF);
     d->print(status);
+    if (code[0])
+    {
+      d->print(' ');
+      d->setTextColor(AVR_COLOR_VPN_COUNTRY);
+      d->print(code);
+    }
   }
 
   // Apps without a logo get their name on its own line, and the volume shrinks to make room

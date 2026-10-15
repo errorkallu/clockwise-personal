@@ -227,38 +227,28 @@ inline int tomThumbWidth(const char *text)
   return w > 0 ? w - 1 : 0;
 }
 
-// The VPN line under the AVR clock: "VPN: " label, then "ON INDIA" or "OFF".
-// Drops the label, then shortens the country, until it fits maxWidth pixels.
-inline void fitVpnLine(bool on, const char *country, int maxWidth, char *label, char *status, size_t size)
+// The VPN line under the AVR clock: "VPN:" label, "ON"/"OFF", then a 3-letter country code
+// (Home Assistant sends the code; anything longer is cut to 3). Drops the label, then the
+// country, until it fits maxWidth pixels. Each buffer must hold at least 8 chars.
+inline void fitVpnLine(bool on, const char *country, int maxWidth, char *label, char *status, char *code)
 {
-  char upper[20];
   size_t n = 0;
-  for (; on && country && country[n] && n < sizeof(upper) - 1; n++)
-    upper[n] = (char)toupper((unsigned char)country[n]);
-  while (n > 0 && upper[n - 1] == ' ') n--;
+  for (; on && country && country[n] && n < 3; n++)
+    code[n] = (char)toupper((unsigned char)country[n]);
+  while (n > 0 && code[n - 1] == ' ') n--;
+  code[n] = '\0';
+  strcpy(status, on ? "ON" : "OFF");
+  strcpy(label, "VPN:");
 
-  // Full line first; then without the label, shortening the country as needed
-  for (int withLabel = 1; withLabel >= 0; withLabel--)
+  char full[24];
+  for (int step = 0; step < 3; step++)
   {
-    snprintf(label, size, "%s", withLabel ? "VPN: " : "");
-    for (size_t len = n;; len--)
-    {
-      while (len > 0 && upper[len - 1] == ' ') len--;
-      if (!on)
-        snprintf(status, size, "OFF");
-      else if (len)
-        snprintf(status, size, "ON %.*s", (int)len, upper);
-      else
-        snprintf(status, size, "ON");
-      char full[48];
-      snprintf(full, sizeof(full), "%s%s", label, status);
-      if (tomThumbWidth(full) <= maxWidth)
-        return;
-      if (len == 0 || withLabel)
-        break;
-    }
+    if (step == 1) label[0] = '\0';
+    if (step == 2) code[0] = '\0';
+    snprintf(full, sizeof(full), "%s%s%s%s", label, status, code[0] ? " " : "", code);
+    if (tomThumbWidth(full) <= maxWidth)
+      return;
   }
-  // Nothing fits: bare status
 }
 
 } // namespace cw
