@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
-// Clockface
-#include <Clockface.h>
+// Clockfaces (all built in, picked on the settings page)
+#include "clockfaces/ClockfaceWrap.h"
+#include <ClockfaceCatalog.h>
 // Commons
 #include <WiFiController.h>
 #include <CWDateTime.h>
@@ -19,7 +20,7 @@
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 
-Clockface *clockface;
+IClockface *clockface;
 
 WiFiController wifi;
 CWDateTime cwDateTime;
@@ -140,7 +141,10 @@ void setup()
   uint8_t E_pin = ClockwiseParams::getInstance()->E_pin;
   
   displaySetup(ClockwiseParams::getInstance()->swapBlueGreen, ClockwiseParams::getInstance()->swapBlueRed, ClockwiseParams::getInstance()->displayBright, ClockwiseParams::getInstance()->displayRotation, driver, i2cSpeed, E_pin);
-  clockface = new Clockface(dma_display);
+  uint8_t clockfaceNumber = cw::validClockface(ClockwiseParams::getInstance()->clockface);
+  Serial.printf("[Clockface] %s (%s)\n", cw::clockfaceName(clockfaceNumber), cw::clockfaceId(clockfaceNumber));
+  ClockwiseWebServer::getInstance()->runningClockface = clockfaceNumber;
+  clockface = cw::createClockface(clockfaceNumber, dma_display);
 
   autoBrightEnabled = (ClockwiseParams::getInstance()->autoBrightMax > 0);
 

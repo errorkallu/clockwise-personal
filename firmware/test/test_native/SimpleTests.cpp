@@ -20,6 +20,10 @@ void run_hub75_pins_tests(void);
 void run_avr_state_tests(void);
 // Defined in TimeFormatTests.cpp
 void run_time_format_tests(void);
+// Defined in StaticIpTests.cpp
+void run_static_ip_tests(void);
+// Defined in ClockfaceCatalogTests.cpp
+void run_clockface_catalog_tests(void);
 
 int runUnityTests(void) {
   UNITY_BEGIN();
@@ -28,6 +32,8 @@ int runUnityTests(void) {
   run_hub75_pins_tests();
   run_avr_state_tests();
   run_time_format_tests();
+  run_static_ip_tests();
+  run_clockface_catalog_tests();
   return UNITY_END();
 }
 

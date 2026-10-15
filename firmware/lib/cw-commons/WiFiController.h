@@ -7,6 +7,7 @@
 #include "StatusController.h"
 #include <WiFiManager.h>
 #include "WiFiSetupStateMachine.h"
+#include "StaticIp.h"
 
 ImprovWiFi improvSerial(&Serial);
 
@@ -137,6 +138,22 @@ struct WiFiController
     Serial.printf("[WiFi] Connected to %s, IP address %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
   }
 
+  // Uses the static address from the settings page, or DHCP when it's empty or invalid.
+  static void applyStaticIp(const String &setting)
+  {
+    cw::StaticIpConfig c;
+    if (!cw::parseStaticIp(setting.c_str(), c))
+      return;
+    IPAddress ip(c.ip[0], c.ip[1], c.ip[2], c.ip[3]);
+    IPAddress gateway(c.gateway[0], c.gateway[1], c.gateway[2], c.gateway[3]);
+    IPAddress subnet(c.subnet[0], c.subnet[1], c.subnet[2], c.subnet[3]);
+    IPAddress dns(c.dns[0], c.dns[1], c.dns[2], c.dns[3]);
+    if (WiFi.config(ip, gateway, subnet, dns))
+      Serial.printf("[WiFi] Static IP %s\n", ip.toString().c_str());
+    else
+      Serial.println("[WiFi] Static IP rejected, using DHCP");
+  }
+
   // Non-blocking: starts the provisioning flow and returns immediately.
   void begin()
   {
@@ -149,6 +166,7 @@ struct WiFiController
 
     ClockwiseParams *params = ClockwiseParams::getInstance();
     params->load();
+    applyStaticIp(params->staticIp);
 
     if (setupFsm.begin(!params->wifiSsid.isEmpty(), millis()) == cw::WiFiSetupAction::StartStationConnect)
     {

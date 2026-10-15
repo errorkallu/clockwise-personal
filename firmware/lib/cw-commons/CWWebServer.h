@@ -5,10 +5,8 @@
 #include "StatusController.h"
 #include "SettingsWebPage.h"
 #include "AvrState.h"
-
-#ifndef CLOCKFACE_NAME
-  #define CLOCKFACE_NAME "UNKNOWN"
-#endif
+#include "ClockfaceCatalog.h"
+#include "StaticIp.h"
 
 WiFiServer server(80);
 
@@ -17,6 +15,7 @@ struct ClockwiseWebServer
   String httpBuffer;
   String query;
   bool force_restart;
+  uint8_t runningClockface = cw::DEFAULT_CLOCKFACE;
   cw::AvrState avrState;
   const char* HEADER_TEMPLATE_D = "X-%s: %d\r\n";
   const char* HEADER_TEMPLATE_S = "X-%s: %s\r\n";
@@ -145,6 +144,16 @@ struct ClockwiseWebServer
         ClockwiseParams::getInstance()->i2cSpeed = value.toInt();
       }  else if (key == ClockwiseParams::getInstance()->PREF_E_PIN) {
         ClockwiseParams::getInstance()->E_pin = value.toInt();
+      } else if (key == ClockwiseParams::getInstance()->PREF_CLOCKFACE) {
+        ClockwiseParams::getInstance()->clockface = cw::validClockface(value.toInt());
+      } else if (key == ClockwiseParams::getInstance()->PREF_STATIC_IP) {
+        String ip = urlDecoded(value);
+        cw::StaticIpConfig cfg;
+        if (ip.length() > 0 && !cw::parseStaticIp(ip.c_str(), cfg)) {
+          client.println("HTTP/1.0 400 Bad Request");  // keep the old setting rather than an unreachable one
+          return;
+        }
+        ClockwiseParams::getInstance()->staticIp = ip;
       }
       ClockwiseParams::getInstance()->save();
       client.println("HTTP/1.0 204 No Content");
@@ -152,6 +161,13 @@ struct ClockwiseWebServer
   }
 
 
+
+  static String urlDecoded(const String &value)
+  {
+    char buf[96];
+    cw::urlDecode(value.c_str(), value.length(), buf, sizeof(buf));
+    return String(buf);
+  }
 
   void readPin(WiFiClient client, String key, uint16_t pin) {
     ClockwiseParams::getInstance()->load();
@@ -185,10 +201,13 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_DRIVER, ClockwiseParams::getInstance()->driver);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_I2CSPEED, ClockwiseParams::getInstance()->i2cSpeed);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_E_PIN, ClockwiseParams::getInstance()->E_pin);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_CLOCKFACE, ClockwiseParams::getInstance()->clockface);
+    client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_STATIC_IP, ClockwiseParams::getInstance()->staticIp.c_str());
 
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
-    client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);
+    // The clockface running now (a new choice applies after restart)
+    client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", cw::clockfaceId(runningClockface));
     client.println();
   }
   
