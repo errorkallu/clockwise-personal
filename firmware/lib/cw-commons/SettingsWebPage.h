@@ -54,6 +54,17 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
       console.log(settings);
       const cards = [
         {
+          title: "Clockface",
+          description: "Which clockface the clock shows. Click Save, then Restart to switch.",
+          formInput: "<select class='w3-select' name='clockface' id='clockface'>" +
+            ["Mario", "Words", "World Map", "Castlevania", "Pac-Man", "Pokedex", "Canvas (themes)"].map((n, i) =>
+              "<option value='" + (i + 1) + "'" + (settings.clockface == i + 1 ? " selected='selected'" : "") + ">" + n + "</option>").join("") +
+            "</select>",
+          icon: "fa-th-large",
+          save: "updatePreference('clockface', clockface.value)",
+          property: "clockface"
+        },
+        {
           title: "Display Bright",
           description: "0 = dark (display off) / 255 = super bright | Value: <strong><output id='rangevalue'>" + settings.displaybright + "</output></strong>",
           formInput: "<input class='w3-input w3-border' type='range' min='0' max='255' value='" + settings.displaybright + "' class='slider' id='bright' oninput='rangevalue.value=value'>",
@@ -137,6 +148,16 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
           exclusive: "cw-cf-0x07"
         },
         {
+          title: "Static IP",
+          description: "Fixed address for the clock. Leave the IP empty to get one from the router (DHCP). DNS is optional and defaults to the gateway. Restart to apply.",
+          formInput: ["IP address", "Gateway", "Subnet mask", "DNS (optional)"].map((p, i) =>
+            "<input id='sip" + i + "' class='w3-input w3-light-grey w3-margin-bottom' type='text' placeholder='" + p + "' value='" +
+            ((settings.staticip || "").split(",")[i] || (i == 2 ? "255.255.255.0" : "")) + "'>").join(""),
+          icon: "fa-sitemap",
+          save: "updatePreference('staticIp', sip0.value.trim() ? [sip0.value, sip1.value, sip2.value, sip3.value].map(v => v.trim()).join(',') : '')",
+          property: "staticIp"
+        },
+        {
           title: "Posix Timezone String",
           description: "To avoid remote lookups, provide a Posix string that corresponds to your timezone. Leave empty to obtain this automatically from the server. <a href=\"https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv\">Click here for a list.</a>",
           formInput: "<input id='posixString' class='w3-input w3-light-grey' name='posixString' type='text' placeholder='Manual Posix String' value='" + settings.manualposix + "'>",
@@ -170,8 +191,8 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
         },          
         {
           title: "E Pin",
-          description: "E pin is Address Line E used for 64-row LED panels to select specific rows (default: 18).",
-          formInput: "<input id='E_pin' class='w3-input w3-light-grey' name='E_pin' type='number' min='0' max='32' value='" + settings.e_pin + "'>",
+          description: "E pin is Address Line E used for 64-row LED panels to select specific rows (default: 32).",
+          formInput: "<input id='E_pin' class='w3-input w3-light-grey' name='E_pin' type='number' min='0' max='33' value='" + settings.e_pin + "'>",
           icon: "fa-microchip",
           save: "updatePreference('E_pin', E_pin.value)",
           property: "E_pin"
@@ -208,6 +229,8 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
       xhr.onreadystatechange = function () {
         if (this.readyState == 4 && this.status >= 200 && this.status < 299) {
           document.getElementById('status').style.display = 'block';
+        } else if (this.readyState == 4 && this.status == 400) {
+          alert('Not saved: please check the values.');
         }
       };
       xhr.open('POST', '/set?' + key + '=' + value);

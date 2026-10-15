@@ -4,17 +4,25 @@
 #include <CWPreferences.h>
 #include "StatusController.h"
 #include "SettingsWebPage.h"
-
-#ifndef CLOCKFACE_NAME
-  #define CLOCKFACE_NAME "UNKNOWN"
-#endif
+#include "AvrState.h"
+#include "ClockfaceCatalog.h"
+#include "StaticIp.h"
+#include "DisplayControl.h"
 
 WiFiServer server(80);
 
 struct ClockwiseWebServer
 {
   String httpBuffer;
+  String query;
   bool force_restart;
+  uint8_t runningClockface = cw::DEFAULT_CLOCKFACE;
+  cw::AvrState avrState;
+  // Live display state, applied by main.cpp's loop when displayDirty is set
+  bool displaySleeping = false;
+  bool displayDirty = false;
+  bool autoBrightOn = false;
+  bool avrShownNow = false;
   const char* HEADER_TEMPLATE_D = "X-%s: %d\r\n";
   const char* HEADER_TEMPLATE_S = "X-%s: %s\r\n";
  
@@ -55,16 +63,18 @@ struct ClockwiseWebServer
 
           if (c == '\n')
           {
-            uint8_t method_pos = httpBuffer.indexOf(' ');
-            uint8_t path_pos = httpBuffer.indexOf(' ', method_pos + 1);
+            int method_pos = httpBuffer.indexOf(' ');
+            int path_pos = httpBuffer.indexOf(' ', method_pos + 1);
 
             String method = httpBuffer.substring(0, method_pos);
             String path = httpBuffer.substring(method_pos + 1, path_pos);
             String key = "";
             String value = "";
+            query = "";
 
             if (path.indexOf('?') > 0)
             {
+              query = path.substring(path.indexOf('?') + 1);
               key = path.substring(path.indexOf('?') + 1, path.indexOf('='));
               value = path.substring(path.indexOf('=') + 1);
               path = path.substring(0, path.indexOf('?'));
@@ -94,6 +104,37 @@ struct ClockwiseWebServer
       if (key == "pin") {
         readPin(client, key, value.toInt());
       }
+    } else if (method == "POST" && path == "/avr") {
+      // Pushed by Home Assistant: /avr?on=1&vol=-35.5&mode=Stereo&deq=On&dvol=off
+      cw::parseAvrQuery(query.c_str(), avrState, millis());
+      client.println("HTTP/1.0 204 No Content");
+      client.println();
+    } else if (method == "POST" && path == "/display") {
+      // Live brightness and sleep for Home Assistant: /display?bright=0..255&sleep=0|1
+      cw::DisplayCommand cmd;
+      if (!cw::parseDisplayQuery(query.c_str(), cmd)) {
+        client.println("HTTP/1.0 400 Bad Request");
+        client.println();
+        return;
+      }
+      if (cmd.sleep >= 0)
+        displaySleeping = (cmd.sleep == 1);  // RAM only; survives software restarts via main.cpp
+      if (cmd.bright >= 0 && cmd.bright != ClockwiseParams::getInstance()->displayBright) {
+        ClockwiseParams::getInstance()->load();
+        ClockwiseParams::getInstance()->displayBright = cmd.bright;
+        ClockwiseParams::getInstance()->save();  // only on change, so slider automations don't wear the flash
+      }
+      displayDirty = true;
+      client.println("HTTP/1.0 204 No Content");
+      client.println();
+    } else if (method == "GET" && path == "/state") {
+      char body[160];
+      cw::formatDisplayState(body, sizeof(body), ClockwiseParams::getInstance()->displayBright, displaySleeping,
+                             autoBrightOn, runningClockface, ClockwiseParams::getInstance()->clockface, avrShownNow);
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.println(body);
     } else if (method == "POST" && path == "/restart") {
       client.println("HTTP/1.0 204 No Content");
       force_restart = true;
@@ -102,6 +143,7 @@ struct ClockwiseWebServer
       //a baby seal has died due this ifs
       if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_BRIGHT) {
         ClockwiseParams::getInstance()->displayBright = value.toInt();
+        displayDirty = true;  // apply now as well as at boot
       } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_SSID) {
         ClockwiseParams::getInstance()->wifiSsid = value;
       } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_PASSWORD) {
@@ -135,6 +177,16 @@ struct ClockwiseWebServer
         ClockwiseParams::getInstance()->i2cSpeed = value.toInt();
       }  else if (key == ClockwiseParams::getInstance()->PREF_E_PIN) {
         ClockwiseParams::getInstance()->E_pin = value.toInt();
+      } else if (key == ClockwiseParams::getInstance()->PREF_CLOCKFACE) {
+        ClockwiseParams::getInstance()->clockface = cw::validClockface(value.toInt());
+      } else if (key == ClockwiseParams::getInstance()->PREF_STATIC_IP) {
+        String ip = urlDecoded(value);
+        cw::StaticIpConfig cfg;
+        if (ip.length() > 0 && !cw::parseStaticIp(ip.c_str(), cfg)) {
+          client.println("HTTP/1.0 400 Bad Request");  // keep the old setting rather than an unreachable one
+          return;
+        }
+        ClockwiseParams::getInstance()->staticIp = ip;
       }
       ClockwiseParams::getInstance()->save();
       client.println("HTTP/1.0 204 No Content");
@@ -142,6 +194,13 @@ struct ClockwiseWebServer
   }
 
 
+
+  static String urlDecoded(const String &value)
+  {
+    char buf[96];
+    cw::urlDecode(value.c_str(), value.length(), buf, sizeof(buf));
+    return String(buf);
+  }
 
   void readPin(WiFiClient client, String key, uint16_t pin) {
     ClockwiseParams::getInstance()->load();
@@ -175,10 +234,13 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_DRIVER, ClockwiseParams::getInstance()->driver);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_I2CSPEED, ClockwiseParams::getInstance()->i2cSpeed);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_E_PIN, ClockwiseParams::getInstance()->E_pin);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_CLOCKFACE, ClockwiseParams::getInstance()->clockface);
+    client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_STATIC_IP, ClockwiseParams::getInstance()->staticIp.c_str());
 
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
-    client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);
+    // The clockface running now (a new choice applies after restart)
+    client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", cw::clockfaceId(runningClockface));
     client.println();
   }
   
