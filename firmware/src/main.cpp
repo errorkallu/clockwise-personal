@@ -12,6 +12,8 @@
 #include <StatusController.h>
 #include <HUB75Pins.h>
 #include <AvrDisplay.h>
+#include <DisplayControl.h>
+#include <esp_system.h>
 
 #define MIN_BRIGHT_DISPLAY_ON 4
 #define MIN_BRIGHT_DISPLAY_OFF 0
@@ -32,6 +34,10 @@ String avrDrawnTime;
 bool autoBrightEnabled;
 long autoBrightMillis = 0;
 uint8_t currentBrightSlot = -1;
+
+// Sleep (display off) survives software restarts, e.g. the one after the AVR screen, but not power loss.
+#define SLEEP_MAGIC 0x5EE9C10C
+RTC_NOINIT_ATTR uint32_t sleepMagic;
 
 bool isValidI2SSpeed(uint32_t speed) {
   return speed == 8000000 || speed == 16000000 || speed == 20000000;
@@ -99,7 +105,7 @@ void displaySetup(bool swapBlueGreen, bool swapBlueRed, uint8_t displayBright, u
 
 void automaticBrightControl()
 {
-  if (autoBrightEnabled) {
+  if (autoBrightEnabled && !ClockwiseWebServer::getInstance()->displaySleeping) {
     if (millis() - autoBrightMillis > 3000)
     {
       int16_t currentValue = analogRead(ClockwiseParams::getInstance()->ldrPin);
@@ -147,12 +153,31 @@ void setup()
   clockface = cw::createClockface(clockfaceNumber, dma_display);
 
   autoBrightEnabled = (ClockwiseParams::getInstance()->autoBrightMax > 0);
+  ClockwiseWebServer::getInstance()->autoBrightOn = autoBrightEnabled;
+  if (esp_reset_reason() == ESP_RST_SW && sleepMagic == SLEEP_MAGIC) {
+    Serial.println("[Display] Still asleep after restart");
+    ClockwiseWebServer::getInstance()->displaySleeping = true;
+    ClockwiseWebServer::getInstance()->displayDirty = true;
+  }
 
   StatusController::getInstance()->clockwiseLogo();
   delay(1000);
 
   StatusController::getInstance()->wifiConnecting();
   wifi.begin(); // non-blocking; provisioning continues in loop()
+}
+
+// Applies brightness or sleep changes pushed to /display or /set without a restart.
+void applyDisplayControl()
+{
+  ClockwiseWebServer *ws = ClockwiseWebServer::getInstance();
+  if (!ws->displayDirty)
+    return;
+  ws->displayDirty = false;
+  sleepMagic = ws->displaySleeping ? SLEEP_MAGIC : 0;
+  currentBrightSlot = -1; // auto-brightness re-applies on its next pass
+  if (ws->displaySleeping || !autoBrightEnabled)
+    dma_display->setBrightness8(cw::outputBrightness(ws->displaySleeping, ClockwiseParams::getInstance()->displayBright));
 }
 
 // Runs once, as soon as Wi-Fi is up (stored credentials, Improv or AP portal).
@@ -215,5 +240,7 @@ void loop()
     }
   }
 
+  ClockwiseWebServer::getInstance()->avrShownNow = avrShown;
+  applyDisplayControl();
   automaticBrightControl();
 }

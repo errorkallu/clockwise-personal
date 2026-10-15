@@ -7,6 +7,7 @@
 #include "AvrState.h"
 #include "ClockfaceCatalog.h"
 #include "StaticIp.h"
+#include "DisplayControl.h"
 
 WiFiServer server(80);
 
@@ -17,6 +18,11 @@ struct ClockwiseWebServer
   bool force_restart;
   uint8_t runningClockface = cw::DEFAULT_CLOCKFACE;
   cw::AvrState avrState;
+  // Live display state, applied by main.cpp's loop when displayDirty is set
+  bool displaySleeping = false;
+  bool displayDirty = false;
+  bool autoBrightOn = false;
+  bool avrShownNow = false;
   const char* HEADER_TEMPLATE_D = "X-%s: %d\r\n";
   const char* HEADER_TEMPLATE_S = "X-%s: %s\r\n";
  
@@ -103,6 +109,32 @@ struct ClockwiseWebServer
       cw::parseAvrQuery(query.c_str(), avrState, millis());
       client.println("HTTP/1.0 204 No Content");
       client.println();
+    } else if (method == "POST" && path == "/display") {
+      // Live brightness and sleep for Home Assistant: /display?bright=0..255&sleep=0|1
+      cw::DisplayCommand cmd;
+      if (!cw::parseDisplayQuery(query.c_str(), cmd)) {
+        client.println("HTTP/1.0 400 Bad Request");
+        client.println();
+        return;
+      }
+      if (cmd.sleep >= 0)
+        displaySleeping = (cmd.sleep == 1);  // RAM only; survives software restarts via main.cpp
+      if (cmd.bright >= 0 && cmd.bright != ClockwiseParams::getInstance()->displayBright) {
+        ClockwiseParams::getInstance()->load();
+        ClockwiseParams::getInstance()->displayBright = cmd.bright;
+        ClockwiseParams::getInstance()->save();  // only on change, so slider automations don't wear the flash
+      }
+      displayDirty = true;
+      client.println("HTTP/1.0 204 No Content");
+      client.println();
+    } else if (method == "GET" && path == "/state") {
+      char body[160];
+      cw::formatDisplayState(body, sizeof(body), ClockwiseParams::getInstance()->displayBright, displaySleeping,
+                             autoBrightOn, runningClockface, ClockwiseParams::getInstance()->clockface, avrShownNow);
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.println(body);
     } else if (method == "POST" && path == "/restart") {
       client.println("HTTP/1.0 204 No Content");
       force_restart = true;
@@ -111,6 +143,7 @@ struct ClockwiseWebServer
       //a baby seal has died due this ifs
       if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_BRIGHT) {
         ClockwiseParams::getInstance()->displayBright = value.toInt();
+        displayDirty = true;  // apply now as well as at boot
       } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_SSID) {
         ClockwiseParams::getInstance()->wifiSsid = value;
       } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_PASSWORD) {

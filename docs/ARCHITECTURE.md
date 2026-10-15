@@ -122,6 +122,8 @@ The software architecture is separated into distinct abstraction layers:
   * `POST /set?<param>=<value>`: Updates one or more settings in `ClockwiseParams` and commits to NVS.
   * `GET /read?pin=<pin>`: Samples an analog pin and returns its current reading (used by the web UI to test and calibrate LDR sensitivity).
   * `POST /restart`: Returns HTTP 204 and flags the main loop to perform `ESP.restart()`.
+  * `POST /display?bright=<0..255>&sleep=<0|1>`: Applies brightness and sleep (panel dark) live, without a restart. Brightness is saved to NVS only when it changes; sleep is kept in RTC memory, so it survives software restarts but not power loss. Returns 400 when no valid value is given.
+  * `GET /state`: JSON for Home Assistant: `bright`, `sleep`, `autoBright`, `clockface` (running), `savedClockface` (applies after restart), `avr`.
 
 ### 3.5 Graphics Engine (`cw-gfx-engine`)
 * **Location**: `firmware/lib/cw-gfx-engine/`
