@@ -1,5 +1,6 @@
 #include "CWDateTime.h"
 #include "CWPreferences.h"
+#include "TimeFormat.h"
 
 void CWDateTime::begin(const char *timeZone, bool use24format, const char *ntpServer = NTP_SERVER, const char *posixTZ = "")
 {
@@ -64,7 +65,10 @@ String CWDateTime::getFormattedTime()
 
 String CWDateTime::getFormattedTime(const char *format)
 {
-  return myTZ.dateTime(format);
+  // Canvas themes and clockfaces often hard-code the hour style; follow the user's setting instead
+  char adapted[48];
+  cw::adaptHourFormat(format, use24hFormat, adapted, sizeof(adapted));
+  return myTZ.dateTime(adapted);
 }
 
 char *CWDateTime::getHour(const char *format)

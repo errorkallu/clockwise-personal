@@ -18,6 +18,8 @@ void run_wifi_setup_state_machine_tests(void);
 void run_hub75_pins_tests(void);
 // Defined in AvrStateTests.cpp
 void run_avr_state_tests(void);
+// Defined in TimeFormatTests.cpp
+void run_time_format_tests(void);
 
 int runUnityTests(void) {
   UNITY_BEGIN();
@@ -25,6 +27,7 @@ int runUnityTests(void) {
   run_wifi_setup_state_machine_tests();
   run_hub75_pins_tests();
   run_avr_state_tests();
+  run_time_format_tests();
   return UNITY_END();
 }
 
