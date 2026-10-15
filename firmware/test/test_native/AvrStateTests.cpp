@@ -150,3 +150,41 @@ void run_avr_state_tests(void)
   RUN_TEST(test_source_logos);
   RUN_TEST(test_split_volume);
 }
+
+static void test_avr_query_reads_vpn(void)
+{
+  cw::AvrState s;
+  TEST_ASSERT_EQUAL_INT(-1, s.vpn);
+  cw::parseAvrQuery("on=1&vpn=1&vpnc=India", s, 0);
+  TEST_ASSERT_EQUAL_INT(1, s.vpn);
+  TEST_ASSERT_EQUAL_STRING("India", s.vpnc);
+  cw::parseAvrQuery("vpn=0&vpnc=", s, 0);
+  TEST_ASSERT_EQUAL_INT(0, s.vpn);
+  cw::parseAvrQuery("vpn=", s, 0);
+  TEST_ASSERT_EQUAL_INT(-1, s.vpn);
+}
+
+static void test_vpn_line_fits_width(void)
+{
+  char label[32], status[32];
+  cw::fitVpnLine(true, "India", 63, label, status, sizeof(label));
+  TEST_ASSERT_EQUAL_STRING("VPN: ", label);
+  TEST_ASSERT_EQUAL_STRING("ON INDIA", status);
+  TEST_ASSERT_EQUAL_INT(45, cw::tomThumbWidth("VPN: ON INDIA"));
+  // Two logos leave 31px: the label goes first
+  cw::fitVpnLine(true, "India", 31, label, status, sizeof(label));
+  TEST_ASSERT_EQUAL_STRING("", label);
+  TEST_ASSERT_EQUAL_STRING("ON INDIA", status);
+  // Long names are shortened
+  cw::fitVpnLine(true, "United States", 31, label, status, sizeof(label));
+  TEST_ASSERT_EQUAL_STRING("ON UNITE", status);
+  cw::fitVpnLine(false, "India", 31, label, status, sizeof(label));
+  TEST_ASSERT_EQUAL_STRING("VPN: ", label);
+  TEST_ASSERT_EQUAL_STRING("OFF", status);
+}
+
+void run_avr_vpn_tests(void)
+{
+  RUN_TEST(test_avr_query_reads_vpn);
+  RUN_TEST(test_vpn_line_fits_width);
+}

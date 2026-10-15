@@ -26,6 +26,8 @@ void run_static_ip_tests(void);
 void run_clockface_catalog_tests(void);
 // Defined in DisplayControlTests.cpp
 void run_display_control_tests(void);
+// Defined in AvrStateTests.cpp
+void run_avr_vpn_tests(void);
 
 int runUnityTests(void) {
   UNITY_BEGIN();
@@ -37,6 +39,7 @@ int runUnityTests(void) {
   run_static_ip_tests();
   run_clockface_catalog_tests();
   run_display_control_tests();
+  run_avr_vpn_tests();
   return UNITY_END();
 }
 

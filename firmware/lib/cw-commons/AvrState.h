@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdio.h>
 
 // AVR status pushed by Home Assistant to POST /avr?on=1&vol=-35.5&mode=...&deq=On&dvol=off
 // Pure C++ so it can be unit tested natively.
@@ -17,6 +18,8 @@ struct AvrState
   char dvol[8] = "";
   char src[24] = "";  // Harmony activity, e.g. "Watch Apple TV"
   char app[24] = "";  // app running on that source, e.g. "YouTube"
+  int8_t vpn = -1;    // Shield VPN: -1 hidden (vpn= empty), 0 off, 1 on
+  char vpnc[20] = ""; // VPN country, e.g. "India"
   uint32_t lastUpdateMs = 0;
 };
 
@@ -98,6 +101,14 @@ inline void parseAvrQuery(const char *query, AvrState &state, uint32_t nowMs)
         urlDecode(val, valLen, state.src, sizeof(state.src));
       else if (keyLen == 3 && strncmp(p, "app", 3) == 0)
         urlDecode(val, valLen, state.app, sizeof(state.app));
+      else if (keyLen == 3 && strncmp(p, "vpn", 3) == 0)
+      {
+        char tmp[8];
+        urlDecode(val, valLen, tmp, sizeof(tmp));
+        state.vpn = tmp[0] ? (isTruthy(tmp) ? 1 : 0) : -1;
+      }
+      else if (keyLen == 4 && strncmp(p, "vpnc", 4) == 0)
+        urlDecode(val, valLen, state.vpnc, sizeof(state.vpnc));
     }
     if (!amp) break;
     p = amp + 1;
@@ -204,6 +215,50 @@ inline void splitVolume(const char *vol, char *whole, char *frac, size_t bufSize
     strncpy(frac, dot, bufSize - 1);
     frac[bufSize - 1] = '\0';
   }
+}
+
+// Width in TomThumb pixels: capitals and digits advance 4, space and ':' advance 2;
+// the last glyph's trailing gap is not counted.
+inline int tomThumbWidth(const char *text)
+{
+  int w = 0;
+  for (const char *c = text; *c; c++)
+    w += (*c == ' ' || *c == ':') ? 2 : 4;
+  return w > 0 ? w - 1 : 0;
+}
+
+// The VPN line under the AVR clock: "VPN: " label, then "ON INDIA" or "OFF".
+// Drops the label, then shortens the country, until it fits maxWidth pixels.
+inline void fitVpnLine(bool on, const char *country, int maxWidth, char *label, char *status, size_t size)
+{
+  char upper[20];
+  size_t n = 0;
+  for (; on && country && country[n] && n < sizeof(upper) - 1; n++)
+    upper[n] = (char)toupper((unsigned char)country[n]);
+  while (n > 0 && upper[n - 1] == ' ') n--;
+
+  // Full line first; then without the label, shortening the country as needed
+  for (int withLabel = 1; withLabel >= 0; withLabel--)
+  {
+    snprintf(label, size, "%s", withLabel ? "VPN: " : "");
+    for (size_t len = n;; len--)
+    {
+      while (len > 0 && upper[len - 1] == ' ') len--;
+      if (!on)
+        snprintf(status, size, "OFF");
+      else if (len)
+        snprintf(status, size, "ON %.*s", (int)len, upper);
+      else
+        snprintf(status, size, "ON");
+      char full[48];
+      snprintf(full, sizeof(full), "%s%s", label, status);
+      if (tomThumbWidth(full) <= maxWidth)
+        return;
+      if (len == 0 || withLabel)
+        break;
+    }
+  }
+  // Nothing fits: bare status
 }
 
 } // namespace cw

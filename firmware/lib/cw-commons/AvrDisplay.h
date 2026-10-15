@@ -11,6 +11,7 @@
 // Full-screen AVR status page (64x64), shown instead of the clockface while the AVR is on.
 //
 //  [src][app] 12:30PM   <- source + app logos, time with AM/PM beside it
+//  [   ][   ] VPN: ON INDIA  <- small, only when HA sends vpn= (Shield on)
 //   (app name)          <- only when the app has no logo
 //     -30 dB            <- volume, large
 //      Dolby            <- sound mode, up to two centred lines
@@ -24,6 +25,8 @@ static const uint16_t AVR_COLOR_APP = 0x07FF;   // cyan
 static const uint16_t AVR_COLOR_MODE = 0xF81F;  // magenta
 static const uint16_t AVR_COLOR_LABEL = 0xFC60; // orange
 static const uint16_t AVR_COLOR_OFF = 0x6B4D;   // grey
+static const uint16_t AVR_COLOR_VPN_ON = 0x07E0;  // green
+static const uint16_t AVR_COLOR_VPN_OFF = 0xF800; // red
 
 inline int16_t avrTextWidth(Adafruit_GFX *d, const char *text)
 {
@@ -96,6 +99,22 @@ inline void renderAvrScreen(Adafruit_GFX *d, const AvrState &s, const char *time
   {
     d->setFont(&TomThumb);
     avrPrintAt(d, ampm, 64 - ampmW + 1, 6, AVR_COLOR_TIME);
+  }
+
+  // Small VPN line under the time, right-aligned beside the logos
+  if (s.vpn >= 0)
+  {
+    char label[32], status[32]; // same size: fitVpnLine uses one size for both
+    int16_t logosW = (src ? 16 : 0) + (app ? 16 : 0);
+    fitVpnLine(s.vpn == 1, s.vpnc, 64 - logosW - 1, label, status, sizeof(label));
+    char full[40];
+    snprintf(full, sizeof(full), "%s%s", label, status);
+    d->setFont(&TomThumb);
+    d->setCursor(64 - tomThumbWidth(full), 13 + 5); // capitals sit 5px above the baseline
+    d->setTextColor(AVR_COLOR_TEXT);
+    d->print(label);
+    d->setTextColor(s.vpn == 1 ? AVR_COLOR_VPN_ON : AVR_COLOR_VPN_OFF);
+    d->print(status);
   }
 
   // Apps without a logo get their name on its own line, and the volume shrinks to make room
