@@ -14,6 +14,7 @@
 #include <AvrDisplay.h>
 #include <DisplayControl.h>
 #include <esp_system.h>
+#include <ArduinoOTA.h>
 
 #define MIN_BRIGHT_DISPLAY_ON 4
 #define MIN_BRIGHT_DISPLAY_OFF 0
@@ -180,6 +181,36 @@ void applyDisplayControl()
     dma_display->setBrightness8(cw::outputBrightness(ws->displaySleeping, ClockwiseParams::getInstance()->displayBright));
 }
 
+// Firmware updates over Wi-Fi (PlatformIO env esp32dev_ota). Shows progress on the panel.
+void otaSetup()
+{
+  ArduinoOTA.setHostname("clockwise");
+  ArduinoOTA.setMdnsEnabled(false); // WiFiController already announces clockwise.local
+  if (strlen(CW_OTA_PASSWORD) > 0)
+    ArduinoOTA.setPassword(CW_OTA_PASSWORD);
+
+  ArduinoOTA.onStart([]() {
+    Serial.println("[OTA] Update starting");
+    dma_display->setBrightness8(32);
+    dma_display->fillScreen(0);
+    dma_display->setFont();
+    dma_display->setTextColor(0xFFFF);
+    dma_display->setCursor(8, 20);
+    dma_display->print("UPDATING");
+    dma_display->drawRect(2, 34, 60, 8, 0xFFFF);
+  });
+  ArduinoOTA.onProgress([](unsigned int done, unsigned int total) {
+    if (total > 0)
+      dma_display->fillRect(4, 36, (int16_t)(56UL * done / total), 4, 0x07E0);
+  });
+  ArduinoOTA.onEnd([]() { Serial.println("[OTA] Done, restarting"); });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("[OTA] Error %u\n", error);
+    StatusController::getInstance()->forceRestart(); // back to the clockface on the old firmware
+  });
+  ArduinoOTA.begin();
+}
+
 // Runs once, as soon as Wi-Fi is up (stored credentials, Improv or AP portal).
 void onNetworkReady()
 {
@@ -189,6 +220,7 @@ void onNetworkReady()
       ClockwiseParams::getInstance()->ntpServer.c_str(),
       ClockwiseParams::getInstance()->manualPosix.c_str());
   clockface->setup(&cwDateTime);
+  otaSetup();
 }
 
 // Draws the AVR page pushed by Home Assistant; only redraws when data or the minute changes.
@@ -217,6 +249,7 @@ void loop()
   if (wifi.isConnected())
   {
     ClockwiseWebServer::getInstance()->handleHttpRequest();
+    ArduinoOTA.handle();
     ezt::events();
   }
 
