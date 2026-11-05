@@ -137,6 +137,7 @@ struct ClockwiseWebServer
       client.println(body);
     } else if (method == "POST" && path == "/restart") {
       client.println("HTTP/1.0 204 No Content");
+      client.println();  // end of headers, or HTTP clients like Home Assistant report an error
       force_restart = true;
     } else if (method == "POST" && path == "/set") {
       ClockwiseParams::getInstance()->load();
@@ -184,12 +185,14 @@ struct ClockwiseWebServer
         cw::StaticIpConfig cfg;
         if (ip.length() > 0 && !cw::parseStaticIp(ip.c_str(), cfg)) {
           client.println("HTTP/1.0 400 Bad Request");  // keep the old setting rather than an unreachable one
+          client.println();
           return;
         }
         ClockwiseParams::getInstance()->staticIp = ip;
       }
       ClockwiseParams::getInstance()->save();
       client.println("HTTP/1.0 204 No Content");
+      client.println();
     }
   }
 
