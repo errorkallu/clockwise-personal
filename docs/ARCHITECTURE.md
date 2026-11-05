@@ -51,7 +51,7 @@ flowchart TD
 ### Hardware Specifications
 * **Microcontroller**: Dual-core ESP32 @ 240MHz with 520 KB SRAM and 4MB+ Flash.
 * **Display Interface**: HUB75 / HUB75E protocol clocked via ESP32 I2S DMA peripheral at configurable speeds (8 MHz, 16 MHz, or 20 MHz).
-* **Display Addressing**: 1:32 scan rate (with E-line support on pin 18 for HUB75E 64×64 panels).
+* **Display Addressing**: 1:32 scan rate (with E-line support on GPIO 32 by default for HUB75E 64×64 panels).
 * **Sensors**: Ambient light detection via a photoresistor (LDR) on ADC1 (default: GPIO 35).
 * **Power Supply**: 5V DC rated for at least 3A (current consumption peaks with full-white high brightness).
 
@@ -122,6 +122,8 @@ The software architecture is separated into distinct abstraction layers:
   * `POST /set?<param>=<value>`: Updates one or more settings in `ClockwiseParams` and commits to NVS.
   * `GET /read?pin=<pin>`: Samples an analog pin and returns its current reading (used by the web UI to test and calibrate LDR sensitivity).
   * `POST /restart`: Returns HTTP 204 and flags the main loop to perform `ESP.restart()`.
+  * `POST /display?bright=<0..255>&sleep=<0|1>`: Applies brightness and sleep (panel dark) live, without a restart. Brightness is saved to NVS only when it changes; sleep is kept in RTC memory, so it survives software restarts but not power loss. Returns 400 when no valid value is given.
+  * `GET /state`: JSON for Home Assistant: `bright`, `sleep`, `autoBright`, `clockface` (running), `savedClockface` (applies after restart), `avr`.
 
 ### 3.5 Graphics Engine (`cw-gfx-engine`)
 * **Location**: `firmware/lib/cw-gfx-engine/`
@@ -192,7 +194,7 @@ Clockwise supports two distinct development workflows and an automated release p
 
 ### 5.1 PlatformIO (Recommended for App Developers)
 * **Configuration**: `firmware/platformio.ini`
-* **Target Board**: `board = esp32doit-devkit-v1`, `framework = arduino`
+* **Target Board**: `board = esp32dev` (38-pin ESP32 DevKit), `framework = arduino`
 * **Clockface Selection**: The active clockface is selected by symlinking or copying the clockface submodule into `firmware/lib/`:
   ```bash
   cd firmware/lib

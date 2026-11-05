@@ -72,7 +72,7 @@ Agents must adhere to the following testing standards:
 
 ## 5. Core Architectural Patterns
 
-* **Modular Clockfaces (`IClockface`)**: Every theme implements `setup(CWDateTime*)` and `update()`. Clockfaces are decoupled submodules injected by symlinking the target clockface into `firmware/lib/`.
+* **Modular Clockfaces (`IClockface`)**: Every theme implements `setup(CWDateTime*)` and `update()`. Clockfaces are decoupled submodules, all built in; `ClockwiseParams::clockface` (1..7) picks one at boot via `cw::createClockface()`.
 * **Service Locator (`Locator`)**: Use `Locator::getDisplay()` for `Adafruit_GFX*` and `Locator::getEventBus()` for `EventBus*`.
 * **Persistent Settings (`ClockwiseParams`)**: Singleton wrapping ESP32 NVS `Preferences` under namespace `"clockwise"`. Access via `ClockwiseParams::getInstance()->load()` and `save()`.
 * **Networking & Time**:
@@ -107,13 +107,15 @@ pio test -d firmware/ -e native
 ~/.platformio/penv/bin/pio test -d firmware/ -e native
 ```
 
-### Build Firmware for a Clockface (e.g. `cw-cf-0x01`)
-Because clockfaces are injected as libraries, symlink the target clockface into `firmware/lib/` before compiling:
+### Build Firmware
+All seven clockfaces are compiled into one firmware (`firmware/src/clockfaces/cf0N.cpp` wraps each
+submodule in its own namespace) and the user picks one on the settings page. Initialise the
+clockface submodules, then build:
 ```bash
-ln -sf ../clockfaces/cw-cf-0x01 firmware/lib/cw-cf-0x01
+git submodule update --init firmware/clockfaces/
 pio run -d firmware/ -e esp32dev
-rm -f firmware/lib/cw-cf-0x01
 ```
+Do not copy or symlink a clockface into `firmware/lib/` any more (`lib_ignore` skips such copies).
 
 ---
 
